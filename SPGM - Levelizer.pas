@@ -25,21 +25,43 @@ var
 	slListEntries, slEditEntries: TStringList;
 	lstListSelects, lstEditSelects, lstEditLevels, lstEditCounts: TList;
 	listFrm, editFrm: TForm;
-	btnListDone, btnListShowEdit, btnEditCommit, btnEditClear, btnEditDone: TButton;
+	btnListDone, btnListCreateNew, btnListShowEdit, btnEditCommit, btnEditClear, btnEditDone: TButton;
 	pnlListBottom, pnlEditBottom: TPanel;
 	listSb, editSb: TScrollBox;
-	activeList: IInterface;
+	activeList, destFile: IInterface;
 
 function NewContainerElement(container: IInterface; path: string): IInterface;
 var
 	entry: IInterface;
 begin
-	entry := ElementByPath(container, 'Leveled List Entries');
+	entry := ElementByPath(container, path);
 	if Assigned(entry) then
 		Result := ElementAssign(entry, HighInteger, nil, false)
 	else
-		entry := Add(container, 'Leveled List Entries', true);
+		entry := Add(container, path, true);
 		Result := ElementByIndex(entry, 0);
+end;
+
+procedure SelectFile;
+var
+	i: integer;
+	clb: TCheckListBox;
+	frm: TForm;
+begin
+	frm := frmFileSelect;
+	clb := TCheckListBox(frm.FindComponent('CheckListBox1'));
+	clb.Items.Add('<New File>');
+	for i := Pred(FileCount) downto 0 do
+		if(GetFileName(FileByIndex(i)) <> 'Skyrim.Hardcoded.keep.this.with.the.exe.and.otherwise.ignore.it.I.really.mean.it.dat') then
+			clb.Items.InsertObject(1, GetFileName(FileByIndex(i)), FileByIndex(i));
+	if(frm.ShowModal = mrOk) then
+		for i := 0 to Pred(clb.Items.Count) do
+			if(clb.Checked[i]) then begin
+				if i = 0 then destFile := AddNewFile else
+					destFile := ObjectToElement(clb.Items.Objects[i]);
+				Break;
+			end;
+	frm.Free;
 end;
 
 procedure AddToLeveledList(list, item: IInterface; level, count: integer);
@@ -50,6 +72,62 @@ begin
 	senv(entry, 'LVLO\Level', level);
 	senv(entry, 'LVLO\Reference', GetLoadOrderFormID(item));
 	senv(entry, 'LVLO\Count', count);
+end;
+
+procedure CreateNewLists;
+var
+	i: integer;
+	cont, lvli: IInterface;
+	frm: TForm;
+	edid: string;
+	edEid: TEdit;
+	btnOk, btnSelectFile: TButton;
+begin
+	frm := TForm.Create(nil);
+	frm.Caption := 'Enter Editor ID';
+	frm.Width := 300;
+	frm.Height := 100;
+	frm.Position := poScreenCenter;
+	
+	edEid := TEdit.Create(frm);
+	edEid.Parent := frm;
+	edEid.Width := 275;
+	edEid.Left := 5;
+	edEid.Top := 5;
+	
+	btnOk := TButton.Create(frm);
+	btnOk.Parent := frm;
+	btnOk.Top := edEid.Height + 10;
+	btnOk.Caption := 'DONE';
+	btnOk.Left := 5;
+	btnOk.ModalResult := mrOk;
+	
+	btnSelectFile := TButton.Create(frm);
+	btnSelectFile.Parent := frm;
+	btnSelectFile.Top := btnOk.Top;
+	btnSelectFile.Caption := 'SELECT FILE';
+	btnSelectFile.Left := frm.Width - btnSelectFile.Width - 20;
+	btnSelectFile.OnClick := SelectFile;
+	
+	if frm.ShowModal = mrOk then edid := edEid.Text;
+	frm.Free;
+	
+	while not Assigned(destFile) do begin
+		AddMessage('Select a file to add the leveled lists to.');
+		SelectFile;
+	end;
+	
+	cont := GroupBySignature(destFile, 'LVLI');
+	if not Assigned(cont) then Add(destFile, 'LVLI', true);
+	lvli := Add(cont, 'LVLI', true);
+	SetElementEditValues(lvli, 'EDID', edid);
+	SetElementEditValues(lvli, 'LVLF', '11000000');
+	
+	slListEntries.AddObject(edid, TObject(lvli));
+	AddListEntry(edid);
+	AddEditEntry(edid);
+	activeList := lvli;
+	TRadioButton(lstListSelects[lstListSelects.Count-1]).Checked := true;
 end;
 
 procedure ShowEditor;
@@ -80,19 +158,19 @@ end;
 
 procedure Commit;
 var
-	i: integer;
+	i, lvl, cnt: integer;
 	ced, led: TEdit;
 begin
 	for i := 0 to slEditEntries.Count-1 do begin
 		led := TEdit(lstEditLevels[i]);
 		ced := TEdit(lstEditCounts[i]);
-		if (TCheckBox(lstEditSelects[i]).Checked <> true)
-			or (led.Text = 'LVL') or (led.Text = '')
-			or (ced.Text = 'CNT') or (ced.Text = '')
-		then Continue;
+		if (TCheckBox(lstEditSelects[i]).Checked <> true) then Continue;
 		
-		AddMessage('	Adding ' + slEditEntries[i] + ' to list ' + geev(activeList, 'EDID') + ', level is ' + led.Text + ', count is ' + ced.Text);
-		AddToLeveledList(activeList, ObjectToElement(slEditEntries.Objects[i]), StrToInt(led.Text), StrToInt(ced.Text));
+		if (led.Text = 'LVL') or (led.Text = '') then lvl := 1 else lvl := StrToInt(led.Text);
+		if (ced.Text = 'CNT') or (ced.Text = '') then cnt := 1 else cnt := StrToInt(ced.Text);
+		
+		AddMessage('	Adding ' + slEditEntries[i] + ' to list ' + geev(activeList, 'EDID') + ', level is ' + IntToStr(lvl) + ', count is ' + IntToStr(cnt));
+		AddToLeveledList(activeList, ObjectToElement(slEditEntries.Objects[i]), lvl, cnt);
 	end;
 end;
 
@@ -205,10 +283,17 @@ begin
 		btnListDone.Caption := 'DONE';
 		btnListDone.ModalResult := mrOk;
 		
+		btnListCreateNew := TButton.Create(listFrm);
+		btnListCreateNew.Parent := pnlListBottom;
+		btnListCreateNew.Top := 3;
+		btnListCreateNew.Left := pnlListBottom.Width - btnListCreateNew.Width - 8;
+		btnListCreateNew.Caption := 'CREATE NEW';
+		btnListCreateNew.OnClick := CreateNewLists;
+		
 		btnListShowEdit := TButton.Create(listFrm);
 		btnListShowEdit.Parent := pnlListBottom;
 		btnListShowEdit.Top := 3;
-		btnListShowEdit.Left := pnlListBottom.Width - btnListShowEdit.Width - 8;
+		btnListShowEdit.Left := pnlListBottom.Width - btnListShowEdit.Width*2 - 16;
 		btnListShowEdit.Caption := 'SHOW EDITOR';
 		btnListShowEdit.OnClick := ShowEditor;
 		
