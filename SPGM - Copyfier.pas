@@ -13,7 +13,6 @@ unit UserScript;
 
 var
 	destFile: IInterface;
-	lstRecords: TList;
 	amount: integer;
 
 procedure SelectFile;
