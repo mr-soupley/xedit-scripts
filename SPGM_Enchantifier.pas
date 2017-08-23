@@ -1,5 +1,5 @@
 {
-	Enchantifier 0.1a
+	Soupy Enchantifier 1.0.0
 	By -- i_am_the_soup
 	
 	This script is used to enchant selected items in bulk.
@@ -15,6 +15,7 @@
 unit UserScript;
 
 uses mteFunctions;
+uses SPGM_Util;
 
 var
 	slEnchantments, slItems: TStringList;
@@ -125,7 +126,7 @@ begin
 	seev(er, 'EDID', 'SPGMAUTOGEN' + HexFormID(er));
 	seev(er, 'FULL', geev(item, 'FULL') + ' of ' + suffix);
 	
-	seev(er, 'CNAM', GetEditValue(item));
+	SetElementEditValues(er, 'CNAM', GetEditValue(item));
 	
 	Result := er;
 end;
@@ -200,19 +201,7 @@ begin
 		end;
 		
 		if(frm.ShowModal = mrOk) then begin			
-			frm := frmFileSelect;
-			clb := TCheckListBox(frm.FindComponent('CheckListBox1'));
-			clb.Items.Add('<New File>');
-			for i := Pred(FileCount) downto 0 do
-				if(GetFileName(FileByIndex(i)) <> 'Skyrim.Hardcoded.keep.this.with.the.exe.and.otherwise.ignore.it.I.really.mean.it.dat') then
-					clb.Items.InsertObject(1, GetFileName(FileByIndex(i)), FileByIndex(i));
-			if(frm.ShowModal = mrOk) then
-				for i := 0 to Pred(clb.Items.Count) do
-					if(clb.Checked[i]) then begin
-						if i = 0 then destRecord := AddNewFile else
-							destRecord := ObjectToElement(clb.Items.Objects[i]);
-						Break;
-					end;
+			destRecord := SelectFile;
 		end;
 	finally
 		frm.Free;
