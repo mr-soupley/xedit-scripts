@@ -1,5 +1,5 @@
 {
-	Levelizer (name pending) 0.1a
+	Soupy Levelizer 1.0.0
 	By -- i_am_the_soup
 	
 	This script is used to quickly and easily add items to leveled lists.
@@ -20,6 +20,7 @@
 unit UserScript;
 
 uses mteFunctions;
+uses SPGM_Util;
 
 var
 	slListEntries, slEditEntries: TStringList;
@@ -42,26 +43,9 @@ begin
 		Result := ElementByIndex(entry, 0);
 end;
 
-procedure SelectFile;
-var
-	i: integer;
-	clb: TCheckListBox;
-	frm: TForm;
+procedure SelectDestFile;
 begin
-	frm := frmFileSelect;
-	clb := TCheckListBox(frm.FindComponent('CheckListBox1'));
-	clb.Items.Add('<New File>');
-	for i := Pred(FileCount) downto 0 do
-		if(GetFileName(FileByIndex(i)) <> 'Skyrim.Hardcoded.keep.this.with.the.exe.and.otherwise.ignore.it.I.really.mean.it.dat') then
-			clb.Items.InsertObject(1, GetFileName(FileByIndex(i)), FileByIndex(i));
-	if(frm.ShowModal = mrOk) then
-		for i := 0 to Pred(clb.Items.Count) do
-			if(clb.Checked[i]) then begin
-				if i = 0 then destFile := AddNewFile else
-					destFile := ObjectToElement(clb.Items.Objects[i]);
-				Break;
-			end;
-	frm.Free;
+	destFile := SelectFile;
 end;
 
 procedure AddToLeveledList(list, item: IInterface; level, count: integer);
@@ -107,23 +91,24 @@ begin
 	btnSelectFile.Top := btnOk.Top;
 	btnSelectFile.Caption := 'SELECT FILE';
 	btnSelectFile.Left := frm.Width - btnSelectFile.Width - 20;
-	btnSelectFile.OnClick := SelectFile;
+	btnSelectFile.OnClick := SelectDestFile;
 	
 	if frm.ShowModal = mrOk then edid := edEid.Text;
 	frm.Free;
 	
 	while not Assigned(destFile) do begin
 		AddMessage('Select a file to add the leveled lists to.');
-		SelectFile;
+		SelectDestFile;
 	end;
 	
 	cont := GroupBySignature(destFile, 'LVLI');
-	if not Assigned(cont) then Add(destFile, 'LVLI', true);
+	if not Assigned(cont) then cont := Add(destFile, 'LVLI', true);
 	lvli := Add(cont, 'LVLI', true);
 	SetElementEditValues(lvli, 'EDID', edid);
 	SetElementEditValues(lvli, 'LVLF', '11000000');
 	
 	slListEntries.AddObject(edid, TObject(lvli));
+	slEditEntries.AddObject(edid, TObject(lvli));
 	AddListEntry(edid);
 	AddEditEntry(edid);
 	activeList := lvli;
@@ -310,7 +295,7 @@ begin
 		btnEditCommit.Left := pnlEditBottom.Width - btnEditCommit.Width*2 - 16;
 		btnEditCommit.Caption := 'COMMIT';
 		btnEditCommit.OnClick := Commit;
-		btnEditCommit.Hint := 'ALL SELECTED ITEMS WILL BE ADDED TO THE LIST AS SOON AS THE BUTTON IS CLICKED.'#10#13'THIS CAN ONLY BE UNDONE BY REMOVING THE ADDED ENTRIES.';
+		btnEditCommit.Hint := 'ALL SELECTED ITEMS WILL BE ADDED TO THE LIST AS SOON AS THE BUTTON IS CLICKED.'#10#13'THIS CAN ONLY BE UNDONE BY MANUALLY REMOVING THE ADDED ENTRIES.';
 		btnEditCommit.ShowHint := true;
 		
 		btnEditClear := TButton.Create(editFrm);
