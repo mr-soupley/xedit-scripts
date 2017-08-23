@@ -1,8 +1,10 @@
 {
-	Copyfier 0.1a
+	Soupy Copyfier 1.0.0
 	By -- i_am_the_soup
 	
-	Copies the selected records into the destination file multiple times.
+	This script copies the selected records into
+	the destination file multiple times.
+	
 	Guide:
 	1. Select the records to be copied.
 	2. Apply the script and select the destination file.
@@ -11,30 +13,20 @@
 
 unit UserScript;
 
+uses SPGM_Util;
+
 var
 	destFile: IInterface;
+	lstRecords: TList;
 	amount: integer;
 
-procedure SelectFile;
+procedure SelectDestFile;
 var
 	i: integer;
 	clb: TCheckListBox;
 	frm: TForm;
 begin
-	frm := frmFileSelect;
-	clb := TCheckListBox(frm.FindComponent('CheckListBox1'));
-	clb.Items.Add('<New File>');
-	for i := Pred(FileCount) downto 0 do
-		if(GetFileName(FileByIndex(i)) <> 'Skyrim.Hardcoded.keep.this.with.the.exe.and.otherwise.ignore.it.I.really.mean.it.dat') then
-			clb.Items.InsertObject(1, GetFileName(FileByIndex(i)), FileByIndex(i));
-	if(frm.ShowModal = mrOk) then
-		for i := 0 to Pred(clb.Items.Count) do
-			if(clb.Checked[i]) then begin
-				if i = 0 then destFile := AddNewFile else
-					destFile := ObjectToElement(clb.Items.Objects[i]);
-				Break;
-			end;
-	frm.Free;
+	destFile := SelectFile;
 end;
 	
 function Initialize: integer;
